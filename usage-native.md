@@ -209,3 +209,48 @@ const styles = StyleSheet.create({
   }
 });
 ```
+
+---
+
+## ✍️ Phase 4: Sign & Submit Transaction
+
+Signing a transaction works exactly like connecting: You generate a link, open it, and wait for the callback.
+
+**File:** `src/actions/transfer.ts`
+```tsx
+import { Linking, Alert } from 'react-native';
+import { column } from '../config/column';
+
+export const sendMoveToken = async (recipient: string, amount: string) => {
+    try {
+        // 1. Construct the Aptos Payload
+        const payload = {
+            function: "0x1::aptos_account::transfer",
+            functionArguments: [recipient, amount], // e.g. "100000000" for 1 MOVE
+        };
+
+        // 2. Generate the encrypted deep link
+        const url = column.signAndSubmitTransaction(payload);
+
+        // 3. Prompt user to sign in Wallet
+        const supported = await Linking.canOpenURL(url);
+        if (supported) {
+            await Linking.openURL(url);
+        } else {
+            Alert.alert("Column Wallet not found");
+        }
+    } catch (e: any) {
+        console.error("Signing Failed:", e.message);
+        Alert.alert("Error", e.message);
+    }
+};
+
+/**
+ * Handle the Transaction Hash response in your App.tsx similar to connection
+ * (You can reuse the same handleDeepLink function)
+ */
+// In App.tsx:
+// if (response.data && response.data.hash) {
+//    Alert.alert("Transaction Success!", `Hash: ${response.data.hash}`);
+// }
+```
