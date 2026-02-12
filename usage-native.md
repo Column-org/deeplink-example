@@ -2,6 +2,17 @@
 
 This guide walks you through a professional, modular integration of Column Wallet.
 
+## 📦 Phase 0: Installation
+
+You'll need the SDK, the Aptos SDK (for payloads), and a Buffer polyfill for encryption.
+
+```bash
+npx expo install @column-org/wallet-sdk @aptos-labs/ts-sdk buffer
+```
+*Note: Ensure `global.Buffer = Buffer` is set in your `index.js` entry file.*
+
+---
+
 ## 🏗️ Phase 1: Configuration (The Config Page)
 
 Professional apps keep configuration in a dedicated module. Create `src/config/column.ts`.
