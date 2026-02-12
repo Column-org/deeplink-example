@@ -1,68 +1,107 @@
-# 📱 Professional Column Wallet SDK (React Native / Expo)
+# 📱 Column Wallet SDK Integration (React Native / Expo)
 
-This guide walks you through a professional, modular integration of Column Wallet.
+This guide provides all the necessary files to integrate Column Wallet into your React Native application professionally.
 
 ## 📦 Phase 0: Installation
 
-You'll need the SDK, the Aptos SDK (for payloads), and a Buffer polyfill for encryption.
+You'll need the SDK, the Aptos SDK (for payloads), and a Buffer polyfill (required for encryption).
 
 ```bash
 npx expo install @column-org/wallet-sdk @aptos-labs/ts-sdk buffer
 ```
-*Note: Ensure `global.Buffer = Buffer` is set in your `index.js` entry file.*
+
+### 1. Polyfill Buffer (CRITICAL)
+Add this to the very top of your `index.js` or `App.tsx` file to prevent crashes.
+
+**File:** `index.js` (or `App.tsx`)
+```javascript
+import { Buffer } from 'buffer';
+global.Buffer = Buffer; // Required for Column SDK encryption
+
+import { registerRootComponent } from 'expo';
+import App from './App';
+
+registerRootComponent(App);
+```
 
 ---
 
-## 🏗️ Phase 1: Configuration (The Config Page)
+## 🏗️ Phase 1: Configuration Module
 
-Professional apps keep configuration in a dedicated module. Create `src/config/column.ts`.
+Create a dedicated configuration file to manage your app's identity and Initialize the SDK instance.
 
+**File:** `src/config/column.ts`
 ```typescript
-// src/config/column.ts
 import { ColumnWalletSDK } from '@column-org/wallet-sdk';
 
-// Step 1: Define your app identity
-const CONFIG = {
-    appName: "Satoshi Yield",
-    appDescription: "The Premium Entry to Movement",
-    appIcon: "https://your-dapp.com/icon.png",
-    appUrl: "https://your-dapp.com",
+/**
+ * 1. Define your App's Metadata
+ * This is what users will see in the wallet when connecting.
+ */
+const SDK_CONFIG = {
+    appName: "My Cool dApp",
+    appDescription: "The best dApp on Movement Network",
+    appIcon: "https://myapp.com/logo.png", // Must be a valid HTTPS URL
+    appUrl: "https://myapp.com",
+    // mobile native schemes do not need https://
     redirectLink: "myapp://callback", 
-    walletScheme: "column",
+    walletScheme: "column", // Production standard
 };
 
-// Step 2: Initialize Core SDK (Logic Only)
-export const column = new ColumnWalletSDK(CONFIG);
+/**
+ * 2. Export the initialized SDK instance
+ * Import this 'column' object whenever you need to connect or sign.
+ */
+export const column = new ColumnWalletSDK(SDK_CONFIG);
 ```
 
-## ⚡ Phase 2: Implementation
+---
 
-### 1. Dedicated Native Button Import
-Instead of mixing code, use a clean component for your connection.
+## ⚡ Phase 2: Create the "Connect Button"
 
+Create a reusable component that handles the deep-link logic gracefully.
+
+**File:** `src/components/ColumnConnectButton.tsx`
 ```tsx
-// src/components/ColumnButton.tsx
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, Linking } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, Linking, Alert } from 'react-native';
 import { column } from '../config/column';
 
-interface ColumnButtonProps {
+interface Props {
     title?: string;
     style?: any;
+    onConnect?: () => void;
 }
 
-export const ColumnConnectButton: React.FC<ColumnButtonProps> = ({ 
+export const ColumnConnectButton: React.FC<Props> = ({ 
     title = "Connect Column Wallet", 
-    style 
+    style,
+    onConnect 
 }) => {
     const handlePress = async () => {
-        const url = column.connect();
-        const canOpen = await Linking.canOpenURL(url);
-        if (canOpen) {
-            await Linking.openURL(url);
-        } else {
-            console.error("Column Wallet App not found.");
-            // Optional: Redirect to App Store
+        try {
+            // 1. Generate the connection URL
+            const url = column.connect();
+            
+            // 2. Check if Column Wallet is installed
+            const supported = await Linking.canOpenURL(url);
+            
+            if (supported) {
+                // 3. Open the wallet
+                await Linking.openURL(url);
+                if (onConnect) onConnect();
+            } else {
+                Alert.alert(
+                    "Wallet Not Found",
+                    "Please install Column Wallet to continue.",
+                    [
+                        { text: "Cancel", style: "cancel" },
+                        { text: "Download", onPress: () => Linking.openURL('https://columnwallet.com/download') }
+                    ]
+                );
+            }
+        } catch (error) {
+            console.error("Deep link error:", error);
         }
     };
 
@@ -75,51 +114,98 @@ export const ColumnConnectButton: React.FC<ColumnButtonProps> = ({
 
 const styles = StyleSheet.create({
     btn: {
-        backgroundColor: '#ffda34',
-        padding: 16,
+        backgroundColor: '#ffda34', // Column Yellow
+        paddingVertical: 16,
+        paddingHorizontal: 24,
         borderRadius: 12,
         alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.65,
+        elevation: 8,
     },
     text: {
-        color: '#000',
+        color: '#121315',
         fontWeight: 'bold',
         fontSize: 16,
     }
 });
 ```
 
-### 2. Standardized Response Handling
-Capture the callback using a standard hook or in your root navigation.
+---
 
+## 🔄 Phase 3: Handle The Callback (Main App)
+
+Capture the response when the user is redirected back to your app.
+
+**File:** `App.tsx`
 ```tsx
-// App.tsx
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import * as Linking from 'expo-linking';
+import { Buffer } from 'buffer';
+
+// Polyfill Buffer for Native Environment
+global.Buffer = Buffer;
+
 import { column } from './src/config/column';
+import { ColumnConnectButton } from './src/components/ColumnConnectButton';
 
 export default function App() {
-  const url = Linking.useURL();
+  const url = Linking.useURL(); // Expo's hook to capture deep links
+  const [address, setAddress] = useState<string | null>(null);
 
   useEffect(() => {
     if (url) {
-      // Professional unified parsing
-      try {
-          const response = column.handleResponse(url);
-          if (response.address) {
-              console.log("Verified Connection:", response.address);
-          }
-      } catch (e) {
-          console.error("Column Callback Error:", e.message);
-      }
+      handleDeepLink(url);
     }
   }, [url]);
 
-  return <ColumnConnectButton />;
+  const handleDeepLink = (deepLinkUrl: string) => {
+    try {
+        // Only process links meant for our app
+        if (!deepLinkUrl.includes("myapp://")) return;
+
+        // 1. Let the SDK parse the response
+        const response = column.handleResponse(deepLinkUrl);
+
+        // 2. If successful, we get the address
+        if (response.address) {
+            console.log("Wallet Connected:", response.address);
+            setAddress(response.address);
+            
+            // Pro Tip: Save the public key for future sessions!
+            // AsyncStorage.setItem('wallet_pk', response.column_encryption_public_key);
+        }
+    } catch (e: any) {
+        console.error("Connection Failed:", e.message);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      {address ? (
+        <Text style={styles.success}>Connected: {address.slice(0,6)}...{address.slice(-4)}</Text>
+      ) : (
+        <ColumnConnectButton />
+      )}
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#121315',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  success: {
+    color: '#4CAF50',
+    fontSize: 18,
+    fontWeight: 'bold',
+  }
+});
 ```
-
----
-
-## 💎 Why this is professional:
-1. **Separation of Concerns**: Your UI (Button) doesn't know about Encryption. Your SDK doesn't know about StyleSheets.
-2. **Modular Initialization**: Changes to your App Name or Icon are made in one single "Config Page."
-3. **Environment Safety**: The Core SDK can be imported anywhere (Web, Native, Node) without crashing.
