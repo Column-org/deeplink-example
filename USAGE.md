@@ -28,12 +28,11 @@ Create a single file at `src/config/column.ts`. You initialize it here **once** 
 import { ColumnWalletSDK } from '@column-org/wallet-sdk';
 
 export const column = new ColumnWalletSDK({
-    appName: "Satoshi Yield",
-    appDescription: "The Premium Entry to Movement",
-    appIcon: "https://your-dapp.com/icon.png",
+    // Optional: Auto-detected from your index.html if omitted
+    appName: "My Movement dApp", 
     appUrl: window.location.origin,
-    redirectLink: window.location.origin, // Where the wallet sends the user back
-    walletScheme: "column",               // The mobile app deep link scheme
+    redirectLink: window.location.origin + '/',
+    walletScheme: "column", // Production Column Wallet Scheme
 });
 ```
 
@@ -100,17 +99,17 @@ When the wallet sends the user back, it attaches the address and encryption key 
 import { column } from './config/column';
 
 useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const address = params.get('address');
-    const encKey = params.get('column_encryption_public_key');
+    // Standard response handling
+    const response = column.handleResponse(window.location.href);
 
-    if (address && encKey) {
-        // MUST DO: Import the key so future transactions can be encrypted!
-        column.importWalletKey(encKey);
+    if (response.address && response.column_encryption_public_key) {
+        // The SDK handles key storage internally when using handleResponse,
+        // but it's good practice to save the address for your UI.
+        setAddress(response.address);
         
-        console.log("Success! Connected to:", address);
+        console.log("Success! Connected to:", response.address);
         
-        // Optional: Clean the URL so the parameters disappear
+        // Clean the URL so the parameters disappear
         window.history.replaceState({}, '', window.location.pathname);
     }
 }, []);
