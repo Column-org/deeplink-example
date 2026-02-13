@@ -16,31 +16,29 @@ npx expo install @column-org/wallet-sdk @aptos-labs/ts-sdk
 
 ## 🏗️ Phase 1: Configuration Module
 
-Create a dedicated configuration file to manage your app's identity and Initialize the SDK instance.
+Create a dedicated configuration file. Using `ColumnWalletNative` allows the SDK to **automatically detect** your app's name, description, and redirect links from your Expo config!
 
 **File:** `constants/column.ts`
 ```typescript
-import { ColumnWalletSDK } from '@column-org/wallet-sdk';
-import * as Linking from 'expo-linking';
+import { ColumnWalletNative } from '@column-org/wallet-sdk';
 
 /**
  * 1. Define your App's Metadata
- * This is what users will see in the wallet when connecting.
+ * If you leave fields blank, the SDK auto-detects them!
  */
 const SDK_CONFIG = {
-    appName: "My Cool dApp",
-    appDescription: "The best dApp on Movement Network",
-    appIcon: "https://myapp.com/logo.png", // Must be a valid HTTPS URL
-    appUrl: "https://myapp.com",
-    redirectLink: Linking.createURL(''), // Dynamic scheme for Expo
-    walletScheme: "column", // Production standard
+    // appName: "Auto-detected!",
+    // appDescription: "Auto-detected!",
+    appIcon: "https://your-website.com/logo.png", // Recommended: Provide a public URL
+    appUrl: "https://your-website.com",         // Recommended: Your dApp website
+    walletScheme: "column",                      // Standard for Column Wallet
 };
 
 /**
  * 2. Export the initialized SDK instance
- * Import this 'column' object whenever you need to connect or sign.
+ * ColumnWalletNative handles Expo/React Native environment detection.
  */
-export const column = new ColumnWalletSDK(SDK_CONFIG);
+export const column = new ColumnWalletNative(SDK_CONFIG);
 ```
 
 ---
