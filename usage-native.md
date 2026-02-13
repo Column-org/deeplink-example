@@ -4,25 +4,13 @@ This guide provides all the necessary files to integrate Column Wallet into your
 
 ## 📦 Phase 0: Installation
 
-You'll need the SDK, the Aptos SDK (for payloads), and a Buffer polyfill (required for encryption).
+The SDK now automatically handles all polyfills for React Native environments.
 
 ```bash
-npx expo install @column-org/wallet-sdk @aptos-labs/ts-sdk buffer
+npx expo install @column-org/wallet-sdk @aptos-labs/ts-sdk
 ```
 
-### 1. Polyfill Buffer (CRITICAL)
-Add this to the very top of your `index.js` or `App.tsx` file to prevent crashes.
-
-**File:** `index.js` (or `App.tsx`)
-```javascript
-import { Buffer } from 'buffer';
-global.Buffer = Buffer; // Required for Column SDK encryption
-
-import { registerRootComponent } from 'expo';
-import App from './App';
-
-registerRootComponent(App);
-```
+> **Note:** The SDK automatically polyfills `Buffer` and `crypto.getRandomValues` for React Native. No manual setup required!
 
 ---
 
@@ -30,9 +18,10 @@ registerRootComponent(App);
 
 Create a dedicated configuration file to manage your app's identity and Initialize the SDK instance.
 
-**File:** `src/config/column.ts`
+**File:** `constants/column.ts`
 ```typescript
 import { ColumnWalletSDK } from '@column-org/wallet-sdk';
+import * as Linking from 'expo-linking';
 
 /**
  * 1. Define your App's Metadata
@@ -43,8 +32,7 @@ const SDK_CONFIG = {
     appDescription: "The best dApp on Movement Network",
     appIcon: "https://myapp.com/logo.png", // Must be a valid HTTPS URL
     appUrl: "https://myapp.com",
-    // mobile native schemes do not need https://
-    redirectLink: "myapp://callback", 
+    redirectLink: Linking.createURL(''), // Dynamic scheme for Expo
     walletScheme: "column", // Production standard
 };
 
@@ -57,82 +45,17 @@ export const column = new ColumnWalletSDK(SDK_CONFIG);
 
 ---
 
-## ⚡ Phase 2: Create the "Connect Button"
+## ⚡ Phase 2: Use the Built-in Connect Modal
 
-Create a reusable component that handles the deep-link logic gracefully.
+The SDK now includes a native `ColumnWalletModal` component that handles the connection UI for you.
 
-**File:** `src/components/ColumnConnectButton.tsx`
+**No custom component needed!** Simply import and use the modal from the SDK:
+
 ```tsx
-import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, Linking, Alert } from 'react-native';
-import { column } from '../config/column';
-
-interface Props {
-    title?: string;
-    style?: any;
-    onConnect?: () => void;
-}
-
-export const ColumnConnectButton: React.FC<Props> = ({ 
-    title = "Connect Column Wallet", 
-    style,
-    onConnect 
-}) => {
-    const handlePress = async () => {
-        try {
-            // 1. Generate the connection URL
-            const url = column.connect();
-            
-            // 2. Check if Column Wallet is installed
-            const supported = await Linking.canOpenURL(url);
-            
-            if (supported) {
-                // 3. Open the wallet
-                await Linking.openURL(url);
-                if (onConnect) onConnect();
-            } else {
-                Alert.alert(
-                    "Wallet Not Found",
-                    "Please install Column Wallet to continue.",
-                    [
-                        { text: "Cancel", style: "cancel" },
-                        { text: "Download", onPress: () => Linking.openURL('https://columnwallet.com/download') }
-                    ]
-                );
-            }
-        } catch (error) {
-            console.error("Deep link error:", error);
-        }
-    };
-
-    return (
-        <TouchableOpacity style={[styles.btn, style]} onPress={handlePress}>
-            <Text style={styles.text}>{title}</Text>
-        </TouchableOpacity>
-    );
-};
-
-const styles = StyleSheet.create({
-    btn: {
-        backgroundColor: '#ffda34', // Column Yellow
-        paddingVertical: 16,
-        paddingHorizontal: 24,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4.65,
-        elevation: 8,
-    },
-    text: {
-        color: '#121315',
-        fontWeight: 'bold',
-        fontSize: 16,
-    }
-});
+import { ColumnWalletModal } from '@column-org/wallet-sdk';
 ```
+
+See Phase 3 below for the complete implementation example.
 
 ---
 
@@ -140,57 +63,104 @@ const styles = StyleSheet.create({
 
 Capture the response when the user is redirected back to your app.
 
-**File:** `App.tsx`
+**File:** `app/(tabs)/index.tsx` (or your main screen)
 ```tsx
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import * as Linking from 'expo-linking';
-import { Buffer } from 'buffer';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import * as ExpoLinking from 'expo-linking';
+import { column } from '@/constants/column';
+import { ColumnWalletModal } from '@column-org/wallet-sdk';
 
-// Polyfill Buffer for Native Environment
-global.Buffer = Buffer;
-
-import { column } from './src/config/column';
-import { ColumnConnectButton } from './src/components/ColumnConnectButton';
-
-export default function App() {
-  const url = Linking.useURL(); // Expo's hook to capture deep links
+export default function HomeScreen() {
   const [address, setAddress] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
+  // Use addEventListener for more reliable deep link handling
   useEffect(() => {
-    if (url) {
+    const handleUrl = ({ url }: { url: string }) => {
       handleDeepLink(url);
-    }
-  }, [url]);
+    };
+    
+    const sub = ExpoLinking.addEventListener('url', handleUrl);
+    
+    // Handle initial link if app was closed
+    ExpoLinking.getInitialURL().then((startUrl) => {
+      if (startUrl) handleDeepLink(startUrl);
+    });
 
-  const handleDeepLink = (deepLinkUrl: string) => {
+    return () => sub.remove();
+  }, []);
+
+  const handleDeepLink = (url: string) => {
     try {
-        // Only process links meant for our app
-        if (!deepLinkUrl.includes("myapp://")) return;
-
-        // 1. Let the SDK parse the response
-        const response = column.handleResponse(deepLinkUrl);
-
-        // 2. If successful, we get the address
-        if (response.address) {
-            console.log("Wallet Connected:", response.address);
-            setAddress(response.address);
-            
-            // Pro Tip: Save the public key for future sessions!
-            // AsyncStorage.setItem('wallet_pk', response.column_encryption_public_key);
-        }
+      const response = column.handleResponse(url);
+      
+      if (response.address) {
+        console.log("Wallet Connected:", response.address);
+        setAddress(response.address);
+        Alert.alert("Success", "Wallet connected successfully!");
+      } else if (response.data?.hash) {
+        Alert.alert("Transaction Submitted", `Hash: ${response.data.hash}`);
+      } else if (response.error) {
+        Alert.alert("Error", response.error);
+      }
     } catch (e: any) {
-        console.error("Connection Failed:", e.message);
+      console.log("Deep link error:", e.message);
+    }
+  };
+
+  const handleSignTransaction = async () => {
+    if (!address) return;
+
+    try {
+      const payload = {
+        function: "0x1::aptos_account::transfer",
+        functionArguments: [address, "1000000"], // 0.01 MOVE
+      };
+
+      const url = column.signAndSubmitTransaction(payload);
+      await ExpoLinking.openURL(url);
+    } catch (e: any) {
+      Alert.alert("Error", e.message);
     }
   };
 
   return (
     <View style={styles.container}>
       {address ? (
-        <Text style={styles.success}>Connected: {address.slice(0,6)}...{address.slice(-4)}</Text>
+        <View style={styles.connectedContainer}>
+          <Text style={styles.title}>Connected</Text>
+          <Text style={styles.address}>{address}</Text>
+          
+          <TouchableOpacity 
+            style={styles.actionBtn} 
+            onPress={handleSignTransaction}
+          >
+            <Text style={styles.btnText}>Sign Test Transaction</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.actionBtn, styles.disconnectBtn]} 
+            onPress={() => setAddress(null)}
+          >
+            <Text style={styles.btnText}>Disconnect</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
-        <ColumnConnectButton />
+        <TouchableOpacity 
+          style={styles.connectBtn} 
+          onPress={() => setModalVisible(true)}
+        >
+          <Text style={styles.connectBtnText}>Connect Column</Text>
+        </TouchableOpacity>
       )}
+
+      <ColumnWalletModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onConnect={() => setModalVisible(false)}
+        sdk={column}
+      />
     </View>
   );
 }
@@ -198,59 +168,79 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121315',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  success: {
-    color: '#4CAF50',
-    fontSize: 18,
+  connectBtn: {
+    backgroundColor: '#ffda34',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  connectBtnText: {
+    color: '#121315',
     fontWeight: 'bold',
-  }
+    fontSize: 16,
+  },
+  connectedContainer: {
+    width: '100%',
+    gap: 16,
+    padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  address: {
+    fontSize: 12,
+    opacity: 0.8,
+    marginBottom: 16,
+  },
+  actionBtn: {
+    backgroundColor: '#007AFF',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  disconnectBtn: {
+    backgroundColor: '#FF3B30',
+  },
+  btnText: {
+    color: 'white',
+    fontWeight: '600',
+  },
 });
 ```
 
 ---
 
-## ✍️ Phase 4: Sign & Submit Transaction
+## ✅ Done!
 
-Signing a transaction works exactly like connecting: You generate a link, open it, and wait for the callback.
+Your app is now fully integrated with Column Wallet. Users can:
+- ✅ Connect their wallet via the built-in modal
+- ✅ Sign and submit transactions
+- ✅ Receive callbacks with transaction hashes
 
-**File:** `src/actions/transfer.ts`
-```tsx
-import { Linking, Alert } from 'react-native';
-import { column } from '../config/column';
+## 🔐 Pro Tips
 
-export const sendMoveToken = async (recipient: string, amount: string) => {
-    try {
-        // 1. Construct the Aptos Payload
-        const payload = {
-            function: "0x1::aptos_account::transfer",
-            functionArguments: [recipient, amount], // e.g. "100000000" for 1 MOVE
-        };
-
-        // 2. Generate the encrypted deep link
-        const url = column.signAndSubmitTransaction(payload);
-
-        // 3. Prompt user to sign in Wallet
-        const supported = await Linking.canOpenURL(url);
-        if (supported) {
-            await Linking.openURL(url);
-        } else {
-            Alert.alert("Column Wallet not found");
-        }
-    } catch (e: any) {
-        console.error("Signing Failed:", e.message);
-        Alert.alert("Error", e.message);
-    }
-};
-
-/**
- * Handle the Transaction Hash response in your App.tsx similar to connection
- * (You can reuse the same handleDeepLink function)
- */
-// In App.tsx:
-// if (response.data && response.data.hash) {
-//    Alert.alert("Transaction Success!", `Hash: ${response.data.hash}`);
-// }
-```
+1. **Persist Session Keys**: Save `column.getSessionSecretKey()` to avoid re-encryption setup
+2. **Network Switching**: The SDK automatically handles network mismatch prompts
+3. **Error Handling**: Always wrap SDK calls in try-catch blocks
+4. **Deep Link Scheme**: Register your custom scheme in `app.json`:
+   ```json
+   {
+     "expo": {
+       "scheme": "myapp"
+     }
+   }
+   ```
