@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useColumnWallet } from './hooks/useColumnWallet';
-import { ConnectModal } from './components/ConnectModal';
+import { ColumnWalletModal } from '@column-org/wallet-sdk';
 import { TransferForm } from './components/TransferForm';
 import { WalletInfo } from './components/WalletInfo';
 
 export default function App() {
-  const { address, network, lastTx, log, connect, logout } = useColumnWallet();
+  const { address, network, lastTx, log, logout, sdk } = useColumnWallet();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -61,13 +61,16 @@ export default function App() {
         )}
       </main>
 
-      <ConnectModal
+      <ColumnWalletModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onConnect={() => {
           setIsModalOpen(false);
-          connect();
+          // connect(); // SDK modal handles navigation automatically if we use the internal connect logic
+          // but we might want to trigger the local state sync if needed.
+          // Actually, our useColumnWallet handles the callback from URL.
         }}
+        sdk={sdk}
       />
     </div>
   );
