@@ -5,7 +5,7 @@ import { TransferForm } from './components/TransferForm';
 import { WalletInfo } from './components/WalletInfo';
 
 export default function App() {
-  const { address, network, lastTx, log, connect, logout, sdk } = useColumnWallet();
+  const { address, network, lastTx, log, connect, logout } = useColumnWallet();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -32,13 +32,7 @@ export default function App() {
             <h1 style={STYLES.heroTitle}>Connect to Column.</h1>
             <p style={STYLES.heroText}>Connect your Column Wallet to test deep linking, transaction signing, and message authorization.</p>
             <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-              <button onClick={() => setIsModalOpen(true)} style={STYLES.ctaBtn}>Custom Modal</button>
-              <button
-                onClick={() => sdk.openConnectModal()}
-                style={{ ...STYLES.ctaBtn, backgroundColor: '#fff', color: '#000' }}
-              >
-                Official Modal
-              </button>
+              <button onClick={() => setIsModalOpen(true)} style={STYLES.ctaBtn}>Connect Wallet</button>
             </div>
           </div>
         ) : (
