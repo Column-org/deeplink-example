@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@column-org/wallet-sdk": "^1.2.3",
+    "@column-org/wallet-sdk": "^1.2.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
