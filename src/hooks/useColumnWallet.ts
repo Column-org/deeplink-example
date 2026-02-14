@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { ColumnWalletSDK } from '@column-org/wallet-sdk';
+import { ColumnWalletWeb } from '@column-org/wallet-sdk';
 
 const SDK_CONFIG = {
-    // appName, appDescription, appIcon will be auto-detected from index.html
+    // appName, appDescription, appIcon will be auto-detected from index.html!
     appUrl: window.location.origin,
     redirectLink: window.location.origin + '/',
-    walletScheme: "column", // Production Column Wallet Scheme
+    walletScheme: "column",
 };
 
-export const sdk = new ColumnWalletSDK(SDK_CONFIG);
+export const sdk = new ColumnWalletWeb(SDK_CONFIG);
 
 export const useColumnWallet = () => {
     const [address, setAddress] = useState<string | null>(localStorage.getItem('col_wallet_address'));

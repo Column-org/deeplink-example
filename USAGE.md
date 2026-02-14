@@ -157,8 +157,9 @@ useEffect(() => {
 
 ---
 
-## 🛡️ Security Features
-*   **End-to-End Encryption**: All transaction payloads are encrypted using Curve25519 before leaving your browser.
+## 🛡️ Security & Cross-App Compatibility
+*   **Unique Session Identities**: Every app instance generates a unique cryptographic key. If you have 3 different dApps open, they each have their own secure "conversation" with the wallet.
+*   **Redirect Precision**: The wallet returns users to the exact `redirect_link` provided in the request.
 *   **Network Guard**: The SDK automatically prompts the user to switch networks if your dApp is on Testnet but the wallet is on Mainnet.
 *   **Fungible Asset Ready**: Supports both legacy Coins and the modern Movement Fungible Asset standard (`0xa`).
 

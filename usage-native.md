@@ -242,3 +242,15 @@ Your app is now fully integrated with Column Wallet. Users can:
      }
    }
    ```
+
+## 🔄 Multi-App & Cross-App Compatibility
+
+The Column SDK is built to support multiple applications seamlessly on the same device.
+
+*   **Unique Session Identities**: Every app instance generates a unique cryptographic key. If you have 3 different apps open, they each have their own secure "conversation" with the wallet.
+*   **Redirect Precision**: The wallet returns users to the exact `scheme` provided in the request. This is why having a unique `scheme` in `app.json` for every app is critical.
+*   **App Identity**: Always provide a unique `appUrl` in your config to help the wallet group your session correctly in the user's history.
+
+---
+
+Need help? Reach out to the **Column Labs** team. 🚀
