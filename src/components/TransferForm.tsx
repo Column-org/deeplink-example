@@ -30,8 +30,8 @@ export const TransferForm: React.FC<{ recipient?: string }> = ({ recipient: init
                 setRecipient('');
                 setAmount('');
             }, 1000);
-        } catch (error: any) {
-            alert('Transfer failed: ' + error.message);
+        } catch (error: unknown) {
+            alert('Transfer failed: ' + (error instanceof Error ? error.message : String(error)));
             setIsSubmitting(false);
         }
     };

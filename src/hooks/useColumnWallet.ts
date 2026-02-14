@@ -43,6 +43,7 @@ export const useColumnWallet = () => {
 
         if (status && logMsg) {
             const logData = { message: logMsg, type: status as 'success' | 'error' };
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLog(logData);
             console.log(`[Column SDK Log]: ${logMsg}`);
 
